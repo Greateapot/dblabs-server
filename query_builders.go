@@ -147,3 +147,151 @@ func truncateTableQueryBuilder(request *pb.TruncateTableRequest) (query string, 
 		return fmt.Sprintf("TRUNCATE TABLE %s;", request.GetTableName()), nil
 	}
 }
+func deleteQueryBuilder(request *pb.DeleteRequest) (query string, err error) {
+	if request.GetTableName() == "" {
+		return failBuildQuery("no table name")
+	} else {
+		query = "DELETE FROM " + request.GetTableName()
+		if request.GetTableAlias() != "" {
+			query += " AS " + request.GetTableAlias()
+		}
+		if request.GetWhereCondition() != "" {
+			query += " WHERE " + request.GetWhereCondition()
+		}
+		if request.GetOrderBy() != nil {
+			var order_by string
+			if order_by, err = orderByQueryPartBuilder(request.GetOrderBy()); err != nil {
+				return "", err
+			} else {
+				query += " " + order_by
+			}
+		}
+		if request.GetLimit() != 0 {
+			query += fmt.Sprintf(" LIMIT %d", request.GetLimit())
+		}
+		return
+	}
+}
+func updateQueryBuilder(request *pb.UpdateRequest) (query string, err error) {
+	var assignments string
+	if request.GetTableName() == "" {
+		return failBuildQuery("no table name")
+	} else if assignments, err = assignmentListQueryPartBuilder(request.GetAssignmentList()); err != nil {
+		return "", err
+	} else {
+		query = fmt.Sprintf("UPDATE %s SET %s", request.GetTableName(), assignments)
+		if request.GetWhereCondition() != "" {
+			query += " WHERE " + request.GetWhereCondition()
+		}
+		if request.GetOrderBy() != nil {
+			var order_by string
+			if order_by, err = orderByQueryPartBuilder(request.GetOrderBy()); err != nil {
+				return "", err
+			} else {
+				query += " " + order_by
+			}
+		}
+		if request.GetLimit() != 0 {
+			query += fmt.Sprintf(" LIMIT %d", request.GetLimit())
+		}
+		return
+	}
+}
+func insertQueryBuilder(request *pb.InsertRequest) (query string, err error) {
+	if request.GetTableName() == "" {
+		return failBuildQuery("no table name")
+	} else {
+		query = "INSERT INTO " + request.GetTableName()
+		if len(request.GetColumnNames()) > 0 {
+			query += fmt.Sprintf("(%s)", strings.Join(request.GetColumnNames(), ", "))
+		}
+		switch request.GetInsertType() {
+		case pb.InsertType_SELECT:
+			var select_data string
+			if select_data, err = selectDataQueryPartBuilder(request.GetSelectData(), false); err != nil {
+				return "", err
+			} else {
+				query += " " + select_data
+			}
+		case pb.InsertType_TABLE:
+			if request.GetOtherTableName() == "" {
+				return failBuildQuery("no other table name")
+			} else {
+				query += " TABLE " + request.GetOtherTableName()
+			}
+		case pb.InsertType_VALUES:
+			var values string
+			if values, err = rowConstructorListQueryPartBuilder(request.GetRowConstructorList()); err != nil {
+				return "", err
+			} else {
+				query += " VALUES " + values
+			}
+		default:
+			return failBuildQuery("unknown insert type")
+		}
+		if request.GetOnDuplicateKeyUpdate() != nil {
+			var assignment_list string
+			if assignment_list, err = assignmentListQueryPartBuilder(request.GetOnDuplicateKeyUpdate()); err != nil {
+				return "", nil
+			} else {
+				query += " ON DUPLICATE KEY UPDATE " + assignment_list
+			}
+		}
+		return
+	}
+}
+func selectQueryBuilder(request *pb.SelectRequest) (query string, err error) {
+	return selectDataQueryPartBuilder(request.GetSelectData(), true)
+}
+func joinQueryBuilder(request *pb.JoinRequest) (query string, err error) {
+	if len(request.GetColumnNames()) == 0 {
+		return failBuildQuery("col names is empty")
+	} else if request.GetFirstTableName() == "" {
+		return failBuildQuery("no first table name")
+	} else if request.GetSecondTableName() == "" {
+		return failBuildQuery("no second table name")
+	} else if request.GetJoin() == nil {
+		return failBuildQuery("no join data")
+	} else {
+		is_join_specification_required := false
+		query = fmt.Sprintf("SELECT JSON_ARRAYAGG(JSON_ARRAY(%s)) FROM %s", strings.Join(request.GetColumnNames(), ", "), request.GetFirstTableName())
+		if request.GetFirstTableAlias() != "" {
+			query += " AS " + request.GetFirstTableAlias()
+		}
+		switch request.GetJoin().GetJoinType() {
+		case pb.JoinType_INNER, pb.JoinType_CROSS:
+			query += fmt.Sprintf(" %s JOIN", request.GetJoin().GetJoinType().String())
+		case pb.JoinType_LEFT, pb.JoinType_RIGHT:
+			is_join_specification_required = true
+			query += fmt.Sprintf(" %s OUTER JOIN", request.GetJoin().GetJoinType().String())
+		default:
+			return failBuildQuery("unknown join type")
+		}
+		query += " " + request.GetSecondTableName()
+		if request.GetSecondTableAlias() != "" {
+			query += " AS " + request.GetSecondTableAlias()
+		}
+		if is_join_specification_required && request.GetJoin().GetJoinSpecification() == nil {
+			return failBuildQuery("no join spec for this join type")
+		} else if request.GetJoin().GetJoinSpecification() != nil {
+			var join_specification string
+			if join_specification, err = joinSpecificationQueryPartBuilder(request.Join.GetJoinSpecification()); err != nil {
+				return "", err
+			} else {
+				query += " " + join_specification
+			}
+		}
+		if request.GetWhereCondition() != "" {
+			query += " WHERE " + request.GetWhereCondition()
+		}
+		if request.GetOrderBy() != nil {
+			var order_by string
+			if order_by, err = orderByQueryPartBuilder(request.GetOrderBy()); err != nil {
+				return "", err
+			} else {
+				query += " " + order_by
+			}
+		}
+		return
+	}
+}

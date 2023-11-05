@@ -11,6 +11,132 @@ func failBuildQueryPart(format string, a ...any) (query_part string, err error) 
 	return "", fmt.Errorf("error while building query part: %s", fmt.Sprintf(format, a...))
 }
 
+func joinColumnListQueryPartBuilder(join_column_list *pb.JoinColumnList) (query_part string, err error) {
+	if join_column_list == nil {
+		return failBuildQueryPart("no join col list data")
+	} else if len(join_column_list.GetColumnNames()) == 0 {
+		return failBuildQueryPart("join col list is empty")
+	} else {
+		return strings.Join(join_column_list.GetColumnNames(), ", "), nil
+	}
+}
+func joinSpecificationQueryPartBuilder(join_specification *pb.JoinSpecification) (query_part string, err error) {
+	if join_specification == nil {
+		return failBuildQueryPart("no join spec data")
+	} else {
+		switch join_specification.GetType() {
+		case pb.JoinSpecificationType_ON:
+			if join_specification.GetSearchCondition() == "" {
+				return failBuildQueryPart("no search condition")
+			} else {
+				query_part = "ON " + join_specification.GetSearchCondition()
+			}
+		case pb.JoinSpecificationType_USING:
+			var join_column_list string
+			if join_column_list, err = joinColumnListQueryPartBuilder(join_specification.GetJoinColumnList()); err != nil {
+				return "", err
+			} else {
+				query_part += fmt.Sprintf("USING (%s)", join_column_list)
+			}
+		}
+		return
+	}
+}
+func rowConstructorListQueryPartBuilder(row_constructor_list *pb.RowConstructorList) (query_part string, err error) {
+	if row_constructor_list == nil {
+		return failBuildQuery("no row constructor list data")
+	} else if len(row_constructor_list.GetValueList()) == 0 {
+		return failBuildQueryPart("row constructor list value list is empty")
+	} else {
+		value_lists := []string{}
+
+		for _, v := range row_constructor_list.GetValueList() {
+			var value_list string
+			if value_list, err = valueListQueryPartBuilder(v); err != nil {
+				return "", err
+			} else {
+				value_lists = append(value_lists, fmt.Sprintf("ROW(%s)", value_list))
+			}
+		}
+
+		return strings.Join(value_lists, ", "), nil
+	}
+}
+func orderByQueryPartBuilder(order_by *pb.OrderBy) (query_part string, err error) {
+	if order_by == nil {
+		return failBuildQueryPart("no order by data")
+	} else if order_by.GetExpr() == "" {
+		return failBuildQueryPart("no order by expr")
+	} else {
+		query_part = "ORDER BY " + order_by.GetExpr()
+		if order_by.GetOrderByDescending() {
+			query_part += " DESC"
+		}
+		return
+	}
+}
+func valueQueryPartBuilder(value *pb.Value) (query_part string, err error) {
+	if value == nil {
+		return failBuildQueryPart("no value data")
+	} else {
+		switch value.GetType() {
+		case pb.ValueType_VALUE_DEFAULT:
+			return "DEFAULT", nil
+		case pb.ValueType_VALUE_EXPR:
+			if value.GetExpr() == "" {
+				return failBuildQueryPart("no value expr")
+			} else {
+				return value.GetExpr(), nil
+			}
+		default:
+			return failBuildQueryPart("unknown assignment type")
+		}
+	}
+}
+func valueListQueryPartBuilder(value_list *pb.ValueList) (query_part string, err error) {
+	if value_list == nil {
+		return failBuildQueryPart("no value list data")
+	} else if len(value_list.GetValues()) == 0 {
+		return failBuildQueryPart("value list is empty")
+	} else {
+		values := []string{}
+
+		for _, value := range value_list.GetValues() {
+			var v string
+			if v, err = valueQueryPartBuilder(value); err != nil {
+				return "", err
+			} else {
+				values = append(values, v)
+			}
+		}
+
+		return strings.Join(values, ", "), nil
+	}
+}
+func assignmentListQueryPartBuilder(assignment_list *pb.AssignmentList) (query_part string, err error) {
+	if assignment_list == nil {
+		return failBuildQueryPart("no assignment list data")
+	} else if len(assignment_list.GetAssignments()) == 0 {
+		return failBuildQueryPart("assignment list is empty")
+	} else {
+		assignments := []string{}
+
+		for _, assignment := range assignment_list.GetAssignments() {
+			var value string
+			if assignment.GetColumnName() == "" {
+				return failBuildQueryPart("no assignment col name")
+			} else if assignment.GetValue() == nil {
+				return failBuildQueryPart("no assignment value")
+			} else if value, err = valueQueryPartBuilder(assignment.GetValue()); err != nil {
+				return "", err
+			} else {
+				assignments = append(assignments, fmt.Sprintf("%s = %s", assignment.GetColumnName(), value))
+			}
+		}
+
+		return strings.Join(assignments, ", "), nil
+	}
+}
 func dropKeyQueryPartBuilder(drop_key *pb.DropKey) (query_part string, err error) {
 	if drop_key == nil {
 		return failBuildQueryPart("no drop key data")
@@ -136,12 +262,12 @@ func addForeignKeyQueryPartBuilder(add_primary_key *pb.AddForeignKey) (query_par
 		return fmt.Sprintf("ADD %s", fk), nil
 	}
 }
-func insertQueryPartBuilder(insert *pb.Insert) (query_part string, err error) {
+func insertQueryPartBuilder(insert *pb.InsertColumn) (query_part string, err error) {
 	if insert != nil {
 		switch insert.GetType() {
-		case pb.InsertType_FIRST:
+		case pb.InsertColumnType_FIRST:
 			query_part = "FIRST"
-		case pb.InsertType_AFTER:
+		case pb.InsertColumnType_AFTER:
 			if after_column_name := insert.GetAfterColumnName(); after_column_name == "" {
 				return failBuildQueryPart("no col name for insert after option")
 			} else {
@@ -330,5 +456,41 @@ func alterColumnQueryPartBuilder(alter_column *pb.AlterColumn) (query_part strin
 		default:
 			return failBuildQueryPart("unknown alter col type")
 		}
+	}
+}
+func selectDataQueryPartBuilder(select_data *pb.SelectData, json_wrap bool) (query_part string, err error) {
+	if select_data == nil {
+		return failBuildQueryPart("no select data data (dup, lol)")
+	} else if len(select_data.GetColumnNames()) == 0 {
+		return failBuildQueryPart("col names is empty")
+	} else if select_data.GetTableName() == "" {
+		return failBuildQueryPart("no table name")
+	} else {
+		select_expr := strings.Join(select_data.GetColumnNames(), ", ")
+		if json_wrap {
+			select_expr = fmt.Sprintf("JSON_ARRAYAGG(JSON_ARRAY(%s))", select_expr)
+		}
+		query_part = fmt.Sprintf("SELECT %s FROM %s", select_expr, select_data.GetTableName())
+		if select_data.GetWhereCondition() != "" {
+			query_part += " WHERE " + select_data.GetWhereCondition()
+		}
+		if select_data.GetGroupByExpr() != "" {
+			query_part += " GROUP BY " + select_data.GetGroupByExpr()
+		}
+		if select_data.GetHavingCondition() != "" {
+			query_part += " HAVING " + select_data.GetHavingCondition()
+		}
+		if select_data.GetOrderBy() != nil {
+			var order_by string
+			if order_by, err = orderByQueryPartBuilder(select_data.GetOrderBy()); err != nil {
+				return "", err
+			} else {
+				query_part += " " + order_by
+			}
+		}
+		if select_data.GetLimit() != 0 {
+			query_part += fmt.Sprintf(" LIMIT %d", select_data.GetLimit())
+		}
+		return
 	}
 }
