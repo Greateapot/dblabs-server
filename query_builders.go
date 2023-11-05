@@ -59,6 +59,8 @@ func alterTableQueryBuilder(request *pb.AlterTableRequest) (query string, err er
 				query_part, err = renameQueryPartBuilder(option.GetRename())
 			case pb.AlterTableOptionType_DROP_KEY:
 				query_part, err = dropKeyQueryPartBuilder(option.GetDropKey())
+			case pb.AlterTableOptionType_ALTER_COLUMN:
+				query_part, err = alterColumnQueryPartBuilder(option.GetAlterColumn())
 			default:
 				return failBuildQuery("unknown option type passed")
 			}
@@ -98,6 +100,10 @@ func createTableQueryBuilder(request *pb.CreateTableRequest) (query string, err 
 				query_part, err = uniqueKeyQueryPartBuilder(option.GetUniqueKey())
 			case pb.CreateTableOptionType_FOREIGN_KEY:
 				query_part, err = foreignKeyQueryPartBuilder(option.GetForeignKey())
+			case pb.CreateTableOptionType_AS:
+				query_part, err = asQueryPartBuilder(option.GetAs())
+			case pb.CreateTableOptionType_LIKE:
+				query_part, err = likeQueryPartBuilder(option.GetLike())
 			default:
 				return failBuildQuery("unknown option type passed")
 			}

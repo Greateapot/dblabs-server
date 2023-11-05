@@ -272,12 +272,63 @@ func columnQueryPartBuilder(column *pb.Column) (query_part string, err error) {
 			} else {
 				query_part += fmt.Sprintf("(%s)", strings.Join(attrs.GetValues(), ", "))
 			}
+		case pb.DataTypeType_BIT,
+			pb.DataTypeType_DATE,
+			pb.DataTypeType_LONGBLOB,
+			pb.DataTypeType_LONGTEXT,
+			pb.DataTypeType_MEDIUMBLOB,
+			pb.DataTypeType_MEDIUMTEXT,
+			pb.DataTypeType_TINYBLOB,
+			pb.DataTypeType_TINYTEXT,
+			pb.DataTypeType_YEAR:
+			break // bypass
 		default:
 			return failBuildQueryPart("unknown data type (col: %s)", column.GetColumnName())
 		}
 		if column.GetNotNull() {
 			query_part += " NOT NULL"
 		}
+		if column.GetDefaultValue() != nil {
+			query_part += fmt.Sprintf(" DEFAULT %s", column.GetDefaultValue().GetValue())
+		}
 		return
+	}
+}
+func asQueryPartBuilder(as *pb.As) (query_part string, err error) {
+	if as == nil {
+		return failBuildQueryPart("no as data")
+	} else if as.GetName() == "" {
+		return failBuildQueryPart("no as name")
+	} else {
+		return fmt.Sprintf("AS %s", as.GetName()), nil
+	}
+}
+func likeQueryPartBuilder(like *pb.Like) (query_part string, err error) {
+	if like == nil {
+		return failBuildQueryPart("no like data")
+	} else if like.GetName() == "" {
+		return failBuildQueryPart("no like name")
+	} else {
+		return fmt.Sprintf("LIKE %s", like.GetName()), nil
+	}
+}
+func alterColumnQueryPartBuilder(alter_column *pb.AlterColumn) (query_part string, err error) {
+	if alter_column == nil {
+		return failBuildQueryPart("no alter col data")
+	} else if alter_column.GetColumnName() == "" {
+		return failBuildQueryPart("no alter col name")
+	} else {
+		switch alter_column.GetType() {
+		case pb.AlterColumnType_SET_DEFAULT_VALUE:
+			if alter_column.GetNewDefaultValue() == nil {
+				return failBuildQueryPart("no alter col new def")
+			} else {
+				return fmt.Sprintf("ALTER COLUMN %s SET DEFAULT %v", alter_column.GetColumnName(), alter_column.GetNewDefaultValue()), nil
+			}
+		case pb.AlterColumnType_DROP_DEFAULT_VALUE:
+			return fmt.Sprintf("ALTER COLUMN %s DROP DEFAULT", alter_column.GetColumnName()), nil
+		default:
+			return failBuildQueryPart("unknown alter col type")
+		}
 	}
 }

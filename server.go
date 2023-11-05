@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 
 	pb "greateapot.re/dblabs-api"
 )
@@ -20,7 +21,10 @@ func (s *ApiServer) execQuery(ctx context.Context, query string) error {
 		return fmt.Errorf("failed begin tx, err: %s", err.Error())
 	}
 	defer tx.Rollback()
-
+	
+	if SrvConf.LogQueries {
+		log.Printf("Executing query: %s", query)
+	}
 	if _, err = tx.ExecContext(ctx, query); err != nil {
 		return fmt.Errorf("failed exec, err: %s; query: %s", err.Error(), query)
 	} else if err = tx.Commit(); err != nil {

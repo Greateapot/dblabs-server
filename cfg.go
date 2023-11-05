@@ -10,9 +10,6 @@ import (
 )
 
 type ServerConfig struct {
-	Lab3DotSqlFilePath string `json:"lab3_dotsql_filepath"`
-	Lab4DotSqlFilePath string `json:"lab4_dotsql_filepath"`
-
 	DatabaseUsername           string `json:"database_username"`
 	DatabasePassword           string `json:"database_password"`
 	DatabaseConnectionProtocol string `json:"database_connection_protocol"`
@@ -22,6 +19,8 @@ type ServerConfig struct {
 	ServerConnectionProtocol string `json:"server_connection_protocol"`
 	ServerHost               string `json:"server_host"`
 	ServerPort               uint   `json:"server_port"`
+
+	LogQueries bool `json:"log_queries"`
 }
 
 var SrvConf = &ServerConfig{}
@@ -58,14 +57,6 @@ func (sc *ServerConfig) load(configPath string) {
 }
 
 func (sc *ServerConfig) verify() {
-	// sql queries
-	if sc.Lab3DotSqlFilePath == "" {
-		log.Panicf("Lab3DotSqlFilePath can't be empty!")
-	}
-	if sc.Lab4DotSqlFilePath == "" {
-		log.Panicf("Lab4DotSqlFilePath can't be empty!")
-	}
-
 	// db auth
 	if sc.DatabaseUsername == "" {
 		log.Panicf("DatabaseUsername can't be empty!")
