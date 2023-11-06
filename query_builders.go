@@ -295,3 +295,53 @@ func joinQueryBuilder(request *pb.JoinRequest) (query string, err error) {
 		return
 	}
 }
+func showDatabasesQueryBuilder(request *pb.ShowDatabasesRequest) (query string, err error) {
+	/*
+		select json_arrayagg(json_array(SCHEMA_NAME)) from INFORMATION_SCHEMA.SCHEMATA;
+		WHERE SCHEMA_NAME != 'sys' AND SCHEMA_NAME != 'information_schema'
+		AND SCHEMA_NAME != 'performance_schema' AND SCHEMA_NAME != 'mysql';
+	*/
+	where_condition := ""
+	if !request.GetShowSys() {
+		where_condition = "SCHEMA_NAME != 'sys' AND SCHEMA_NAME != 'information_schema'" +
+			"AND SCHEMA_NAME != 'performance_schema' AND SCHEMA_NAME != 'mysql';"
+	}
+	return selectDataQueryPartBuilder(&pb.SelectData{
+		TableName:      "INFORMATION_SCHEMA.SCHEMATA",
+		ColumnNames:    []string{"SCHEMA_NAME"},
+		WhereCondition: where_condition,
+	}, true)
+}
+func showTablesQueryBuilder(request *pb.ShowTablesRequest) (query string, err error) {
+	//  select json_arrayagg(json_array(TABLE_NAME)) from INFORMATION_SCHEMA.TABLES where TABLE_SCHEMA = '%s';
+	if request.GetDatabaseName() == "" {
+		return failBuildQuery("no db name")
+	} else {
+		return selectDataQueryPartBuilder(&pb.SelectData{
+			TableName:      "INFORMATION_SCHEMA.TABLES",
+			ColumnNames:    []string{"TABLE_NAME"},
+			WhereCondition: fmt.Sprintf("TABLE_SCHEMA = '%s'", request.GetDatabaseName()),
+		}, true)
+	}
+}
+func showTableStructQueryBuilder(request *pb.ShowTableStructRequest) (query string, err error) {
+	/*
+		SELECT json_arrayagg(json_array(COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_KEY, COLUMN_DEFAULT, EXTRA))
+		FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s';
+	*/
+	if request.GetDatabaseName() == "" {
+		return failBuildQuery("no db name")
+	} else if request.GetTableName() == "" {
+		return failBuildQuery("no table name")
+	} else {
+		return selectDataQueryPartBuilder(&pb.SelectData{
+			TableName:   "INFORMATION_SCHEMA.COLUMNS",
+			ColumnNames: []string{"COLUMN_NAME", "COLUMN_TYPE", "IS_NULLABLE", "COLUMN_KEY", "COLUMN_DEFAULT", "EXTRA"},
+			WhereCondition: fmt.Sprintf(
+				"TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'",
+				request.GetDatabaseName(),
+				request.GetTableName(),
+			),
+		}, true)
+	}
+}

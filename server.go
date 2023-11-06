@@ -34,7 +34,7 @@ func (s *ApiServer) execQuery(ctx context.Context, query string) error {
 	}
 }
 
-func (s *ApiServer) queryQuery(ctx context.Context, query string) (data string, err error) {
+func (s *ApiServer) queryQuery(ctx context.Context, query string) (string, error) {
 	tx, err := s.DB.Begin()
 	if err != nil {
 		return "", fmt.Errorf("failed begin tx, err: %s", err.Error())
@@ -44,13 +44,18 @@ func (s *ApiServer) queryQuery(ctx context.Context, query string) (data string, 
 	if SrvConf.LogQueries {
 		log.Printf("Querying query: %s", query)
 	}
+	var data sql.NullString
 	row := tx.QueryRowContext(ctx, query)
 	if err := row.Scan(&data); err != nil {
 		return "", fmt.Errorf("failed to scan row, err: %s; query: %s", err.Error(), query)
-	} else if err = tx.Commit(); err != nil {
+	} else if err := tx.Commit(); err != nil {
 		return "", fmt.Errorf("failed to commit changes, err: %s", err.Error())
 	} else {
-		return data, nil
+		if data.Valid {
+			return data.String, nil
+		} else {
+			return "[]", nil
+		}
 	}
 }
 
@@ -261,6 +266,60 @@ func (s *ApiServer) Select(ctx context.Context, request *pb.SelectRequest) (*pb.
 }
 func (s *ApiServer) Join(ctx context.Context, request *pb.JoinRequest) (*pb.TableResponse, error) {
 	if query, err := joinQueryBuilder(request); err != nil {
+		return &pb.TableResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A1, Message: err.Error()},
+		}, nil
+	} else if data, err := s.queryQuery(ctx, query); err != nil {
+		return &pb.TableResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A2, Message: err.Error()},
+		}, nil
+	} else {
+		return &pb.TableResponse{
+			Ok:   true,
+			Data: data,
+		}, nil
+	}
+}
+func (s *ApiServer) ShowDatabases(ctx context.Context, request *pb.ShowDatabasesRequest) (*pb.TableResponse, error) {
+	if query, err := showDatabasesQueryBuilder(request); err != nil {
+		return &pb.TableResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A1, Message: err.Error()},
+		}, nil
+	} else if data, err := s.queryQuery(ctx, query); err != nil {
+		return &pb.TableResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A2, Message: err.Error()},
+		}, nil
+	} else {
+		return &pb.TableResponse{
+			Ok:   true,
+			Data: data,
+		}, nil
+	}
+}
+func (s *ApiServer) ShowTables(ctx context.Context, request *pb.ShowTablesRequest) (*pb.TableResponse, error) {
+	if query, err := showTablesQueryBuilder(request); err != nil {
+		return &pb.TableResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A1, Message: err.Error()},
+		}, nil
+	} else if data, err := s.queryQuery(ctx, query); err != nil {
+		return &pb.TableResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A2, Message: err.Error()},
+		}, nil
+	} else {
+		return &pb.TableResponse{
+			Ok:   true,
+			Data: data,
+		}, nil
+	}
+}
+func (s *ApiServer) ShowTableStruct(ctx context.Context, request *pb.ShowTableStructRequest) (*pb.TableResponse, error) {
+	if query, err := showTableStructQueryBuilder(request); err != nil {
 		return &pb.TableResponse{
 			Ok:    false,
 			Error: &pb.ResponseError{Code: 0x000000A1, Message: err.Error()},
