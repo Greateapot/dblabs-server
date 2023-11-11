@@ -336,3 +336,37 @@ func (s *ApiServer) ShowTableStruct(ctx context.Context, request *pb.ShowTableSt
 		}, nil
 	}
 }
+func (s *ApiServer) CreateTrigger(ctx context.Context, request *pb.CreateTriggerRequest) (*pb.OkResponse, error) {
+	if query, err := createTriggerQueryBuilder(request); err != nil {
+		return &pb.OkResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A1, Message: err.Error()},
+		}, nil
+	} else if err := s.execQuery(ctx, query); err != nil {
+		return &pb.OkResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A2, Message: err.Error()},
+		}, nil
+	} else {
+		return &pb.OkResponse{
+			Ok: true,
+		}, nil
+	}
+}
+func (s *ApiServer) DropTrigger(ctx context.Context, request *pb.DropTriggerRequest) (*pb.OkResponse, error) {
+	if query, err := dropTriggerQueryBuilder(request); err != nil {
+		return &pb.OkResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A1, Message: err.Error()},
+		}, nil
+	} else if err := s.execQuery(ctx, query); err != nil {
+		return &pb.OkResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A2, Message: err.Error()},
+		}, nil
+	} else {
+		return &pb.OkResponse{
+			Ok: true,
+		}, nil
+	}
+}

@@ -345,3 +345,36 @@ func showTableStructQueryBuilder(request *pb.ShowTableStructRequest) (query stri
 		}, true)
 	}
 }
+func dropTriggerQueryBuilder(request *pb.DropTriggerRequest) (query string, err error) {
+	if request.GetTriggerName() == "" {
+		return failBuildQuery("no trigger name")
+	} else {
+		return fmt.Sprintf("DROP TRIGGER %s", request.GetTriggerName()), nil
+	}
+}
+func createTriggerQueryBuilder(request *pb.CreateTriggerRequest) (query string, err error) {
+	// CREATE TRIGGER trigger_name trigger_time trigger_event ON tbl_name FOR EACH ROW [trigger_order] trigger_body
+	if request.GetTriggerName() == "" {
+		return failBuildQuery("no trigger name")
+	} else if request.GetTableName() == "" {
+		return failBuildQuery("no table name")
+	} else if request.GetTriggerBody() == "" {
+		return failBuildQuery("no trigger body")
+	} else {
+		trigger_order := ""
+		if request.GetTriggerOrder() != nil {
+			if trigger_order, err = triggerOrderQueryPartBuilder(request.GetTriggerOrder()); err != nil {
+				return "", err
+			}
+		}
+		return fmt.Sprintf(
+			"CREATE TRIGGER %s %s %s ON %s FOR EACH ROW %s %s",
+			request.GetTriggerName(),
+			strings.Split(request.GetTriggerTime().String(), "_")[0], // proto-кастыли
+			request.GetTriggerEvent().String(),
+			request.GetTableName(),
+			trigger_order,
+			request.GetTriggerBody(),
+		), nil
+	}
+}

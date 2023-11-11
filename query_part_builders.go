@@ -11,6 +11,15 @@ func failBuildQueryPart(format string, a ...any) (query_part string, err error) 
 	return "", fmt.Errorf("error while building query part: %s", fmt.Sprintf(format, a...))
 }
 
+func triggerOrderQueryPartBuilder(trigger_order *pb.TriggerOrder) (query_part string, err error) {
+	if trigger_order == nil {
+		return failBuildQueryPart("no trigger order data")
+	} else if trigger_order.GetOtherTriggerName() == "" {
+		return failBuildQueryPart("no trigger order other trigger name")
+	} else {
+		return fmt.Sprintf("%s %s", trigger_order.GetType().String(), trigger_order.GetOtherTriggerName()), nil
+	}
+}
 func joinColumnListQueryPartBuilder(join_column_list *pb.JoinColumnList) (query_part string, err error) {
 	if join_column_list == nil {
 		return failBuildQueryPart("no join col list data")
