@@ -503,3 +503,21 @@ func selectDataQueryPartBuilder(select_data *pb.SelectData, json_wrap bool) (que
 		return
 	}
 }
+func viewAlgorithmTypeQueryPartBuilder(alg pb.ViewAlgorithmType) string {
+	switch alg {
+	case pb.ViewAlgorithmType_MERGE:
+		return "ALGORITHM = MERGE"
+	case pb.ViewAlgorithmType_TEMPTABLE:
+		return "ALGORITHM = TEMPTABLE"
+	default:
+		return "ALGORITHM = UNDEFINED"
+	}
+}
+func viewWithCheckOptionTypeQueryPartBuilder(cot pb.ViewWithCheckOptionType) string {
+	switch cot {
+	case pb.ViewWithCheckOptionType_LOCAL:
+		return "WITH LOCAL CHECK OPTION"
+	default:
+		return "WITH CASCADED CHECK OPTION"
+	}
+}

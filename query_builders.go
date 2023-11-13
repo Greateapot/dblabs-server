@@ -378,3 +378,64 @@ func createTriggerQueryBuilder(request *pb.CreateTriggerRequest) (query string, 
 		), nil
 	}
 }
+func createViewQueryBuilder(request *pb.CreateViewRequest) (query string, err error) {
+	if request.GetViewName() == "" {
+		return failBuildQuery("no view name")
+	} else {
+		var selectData, orReplace string
+		if selectData, err = selectDataQueryPartBuilder(request.GetSelectData(), false); err != nil {
+			return "", err
+		}
+		if request.GetOrReplace() {
+			orReplace = "OR REPLACE"
+		} else {
+			orReplace = ""
+		}
+		algorithm := viewAlgorithmTypeQueryPartBuilder(request.GetAlgorithm())
+		withCheckOption := viewWithCheckOptionTypeQueryPartBuilder(request.GetWithCheckOption())
+		columnNames := strings.Join(request.GetColumnList(), ", ")
+		if columnNames != "" {
+			columnNames = fmt.Sprintf("(%s)", columnNames)
+		}
+		return fmt.Sprintf(
+			"CREATE %s %s VIEW %s %s AS %s %s",
+			orReplace,
+			algorithm,
+			request.GetViewName(),
+			columnNames,
+			selectData,
+			withCheckOption,
+		), nil
+	}
+}
+func alterViewQueryBuilder(request *pb.AlterViewRequest) (query string, err error) {
+	if request.GetViewName() == "" {
+		return failBuildQuery("no view name")
+	} else {
+		var selectData string
+		if selectData, err = selectDataQueryPartBuilder(request.GetSelectData(), false); err != nil {
+			return "", err
+		}
+		algorithm := viewAlgorithmTypeQueryPartBuilder(request.GetAlgorithm())
+		withCheckOption := viewWithCheckOptionTypeQueryPartBuilder(request.GetWithCheckOption())
+		columnNames := strings.Join(request.GetColumnList(), ", ")
+		if columnNames != "" {
+			columnNames = fmt.Sprintf("(%s)", columnNames)
+		}
+		return fmt.Sprintf(
+			"ALTER %s VIEW %s %s AS %s %s",
+			algorithm,
+			request.GetViewName(),
+			columnNames,
+			selectData,
+			withCheckOption,
+		), nil
+	}
+}
+func dropViewQueryBuilder(request *pb.DropViewRequest) (query string, err error) {
+	if request.GetViewName() == "" {
+		return failBuildQuery("no view name")
+	} else {
+		return fmt.Sprintf("DROP VIEW %s", request.GetViewName()), nil
+	}
+}

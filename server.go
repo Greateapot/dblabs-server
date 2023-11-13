@@ -370,3 +370,54 @@ func (s *ApiServer) DropTrigger(ctx context.Context, request *pb.DropTriggerRequ
 		}, nil
 	}
 }
+func (s *ApiServer) CreateView(ctx context.Context, request *pb.CreateViewRequest) (*pb.OkResponse, error) {
+	if query, err := createViewQueryBuilder(request); err != nil {
+		return &pb.OkResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A1, Message: err.Error()},
+		}, nil
+	} else if err := s.execQuery(ctx, query); err != nil {
+		return &pb.OkResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A2, Message: err.Error()},
+		}, nil
+	} else {
+		return &pb.OkResponse{
+			Ok: true,
+		}, nil
+	}
+}
+func (s *ApiServer) AlterView(ctx context.Context, request *pb.AlterViewRequest) (*pb.OkResponse, error) {
+	if query, err := alterViewQueryBuilder(request); err != nil {
+		return &pb.OkResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A1, Message: err.Error()},
+		}, nil
+	} else if err := s.execQuery(ctx, query); err != nil {
+		return &pb.OkResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A2, Message: err.Error()},
+		}, nil
+	} else {
+		return &pb.OkResponse{
+			Ok: true,
+		}, nil
+	}
+}
+func (s *ApiServer) DropView(ctx context.Context, request *pb.DropViewRequest) (*pb.OkResponse, error) {
+	if query, err := dropViewQueryBuilder(request); err != nil {
+		return &pb.OkResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A1, Message: err.Error()},
+		}, nil
+	} else if err := s.execQuery(ctx, query); err != nil {
+		return &pb.OkResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A2, Message: err.Error()},
+		}, nil
+	} else {
+		return &pb.OkResponse{
+			Ok: true,
+		}, nil
+	}
+}
