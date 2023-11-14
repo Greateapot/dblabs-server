@@ -421,3 +421,71 @@ func (s *ApiServer) DropView(ctx context.Context, request *pb.DropViewRequest) (
 		}, nil
 	}
 }
+func (s *ApiServer) CallProcedure(ctx context.Context, request *pb.CallProcedureRequest) (*pb.OkResponse, error) {
+	if query, err := callProcedureQueryBuilder(request); err != nil {
+		return &pb.OkResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A1, Message: err.Error()},
+		}, nil
+	} else if err := s.execQuery(ctx, query); err != nil {
+		return &pb.OkResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A2, Message: err.Error()},
+		}, nil
+	} else {
+		return &pb.OkResponse{
+			Ok: true,
+		}, nil
+	}
+}
+func (s *ApiServer) CreateProcedure(ctx context.Context, request *pb.CreateProcedureRequest) (*pb.OkResponse, error) {
+	if query, err := createProcedureQueryBuilder(request); err != nil {
+		return &pb.OkResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A1, Message: err.Error()},
+		}, nil
+	} else if err := s.execQuery(ctx, query); err != nil {
+		return &pb.OkResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A2, Message: err.Error()},
+		}, nil
+	} else {
+		return &pb.OkResponse{
+			Ok: true,
+		}, nil
+	}
+}
+func (s *ApiServer) DropProcedure(ctx context.Context, request *pb.DropProcedureRequest) (*pb.OkResponse, error) {
+	if query, err := dropProcedureQueryBuilder(request); err != nil {
+		return &pb.OkResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A1, Message: err.Error()},
+		}, nil
+	} else if err := s.execQuery(ctx, query); err != nil {
+		return &pb.OkResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A2, Message: err.Error()},
+		}, nil
+	} else {
+		return &pb.OkResponse{
+			Ok: true,
+		}, nil
+	}
+}
+func (s *ApiServer) Set(ctx context.Context, request *pb.SetRequest) (*pb.OkResponse, error) {
+	if query, err := setQueryBuilder(request); err != nil {
+		return &pb.OkResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A1, Message: err.Error()},
+		}, nil
+	} else if err := s.execQuery(ctx, query); err != nil {
+		return &pb.OkResponse{
+			Ok:    false,
+			Error: &pb.ResponseError{Code: 0x000000A2, Message: err.Error()},
+		}, nil
+	} else {
+		return &pb.OkResponse{
+			Ok: true,
+		}, nil
+	}
+}

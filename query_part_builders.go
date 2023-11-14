@@ -348,77 +348,12 @@ func columnQueryPartBuilder(column *pb.Column) (query_part string, err error) {
 	} else if column.GetDataType() == nil {
 		return failBuildQueryPart("no data type (col: %s)", column.GetColumnName())
 	} else {
-		query_part = column.GetColumnName() + " " + column.GetDataType().GetType().String()
-		switch column.GetDataType().GetType() {
-		case pb.DataTypeType_INT,
-			pb.DataTypeType_SMALLINT,
-			pb.DataTypeType_TINYINT,
-			pb.DataTypeType_MEDIUMINT,
-			pb.DataTypeType_BIGINT:
-			attrs := column.GetDataType().GetIntAttrs()
-			if attrs.GetUnsigned() {
-				query_part += " UNSIGNED"
-			}
-			if attrs.GetAutoIncrement() {
-				query_part += " AUTO_INCREMENT"
-			}
-		case pb.DataTypeType_FLOAT:
-			if attrs := column.GetDataType().GetFloatAttrs(); attrs != nil {
-				if attrs.GetP() != 0 {
-					query_part += fmt.Sprintf("(%d)", attrs.GetP())
-				}
-			} else if attrs := column.GetDataType().GetDoubleAttrs(); attrs != nil {
-				if attrs.GetSize() != 0 && attrs.GetD() != 0 {
-					query_part += fmt.Sprintf("(%d, %d)", attrs.GetSize(), attrs.GetD())
-				} else if attrs.GetSize() != 0 {
-					query_part += fmt.Sprintf("(%d)", attrs.GetSize())
-				}
-			}
-		case pb.DataTypeType_DECIMAL,
-			pb.DataTypeType_NUMERIC,
-			pb.DataTypeType_DOUBLE:
-			attrs := column.GetDataType().GetDoubleAttrs()
-			if attrs.GetSize() != 0 && attrs.GetD() != 0 {
-				query_part += fmt.Sprintf("(%d, %d)", attrs.GetSize(), attrs.GetD())
-			} else if attrs.GetSize() != 0 {
-				query_part += fmt.Sprintf("(%d)", attrs.GetSize())
-			}
-		case pb.DataTypeType_DATETIME,
-			pb.DataTypeType_TIMESTAMP,
-			pb.DataTypeType_TIME:
-			attrs := column.GetDataType().GetTimeAttrs()
-			if attrs.GetFsp() != 0 {
-				query_part += fmt.Sprintf("(%d)", attrs.GetFsp())
-			}
-		case pb.DataTypeType_CHAR,
-			pb.DataTypeType_VARCHAR,
-			pb.DataTypeType_BINARY,
-			pb.DataTypeType_VARBINARY,
-			pb.DataTypeType_BLOB,
-			pb.DataTypeType_TEXT:
-			attrs := column.GetDataType().GetStringAttrs()
-			if attrs.GetSize() != 0 {
-				query_part += fmt.Sprintf("(%d)", attrs.GetSize())
-			}
-		case pb.DataTypeType_ENUM:
-			attrs := column.GetDataType().GetEnumAttrs()
-			if len(attrs.GetValues()) == 0 {
-				return failBuildQueryPart("no enum values (col: %s)", column.GetColumnName())
-			} else {
-				query_part += fmt.Sprintf("(%s)", strings.Join(attrs.GetValues(), ", "))
-			}
-		case pb.DataTypeType_BIT,
-			pb.DataTypeType_DATE,
-			pb.DataTypeType_LONGBLOB,
-			pb.DataTypeType_LONGTEXT,
-			pb.DataTypeType_MEDIUMBLOB,
-			pb.DataTypeType_MEDIUMTEXT,
-			pb.DataTypeType_TINYBLOB,
-			pb.DataTypeType_TINYTEXT,
-			pb.DataTypeType_YEAR:
-			break // bypass
-		default:
-			return failBuildQueryPart("unknown data type (col: %s)", column.GetColumnName())
+		query_part = column.GetColumnName()
+		data_type := ""
+		if data_type, err = dataTypeQueryPartBuilder(column.GetDataType()); err != nil {
+			return "", err
+		} else {
+			query_part += " " + data_type
 		}
 		if column.GetNotNull() {
 			query_part += " NOT NULL"
@@ -472,14 +407,15 @@ func selectDataQueryPartBuilder(select_data *pb.SelectData, json_wrap bool) (que
 		return failBuildQueryPart("no select data data (dup, lol)")
 	} else if len(select_data.GetColumnNames()) == 0 {
 		return failBuildQueryPart("col names is empty")
-	} else if select_data.GetTableName() == "" {
-		return failBuildQueryPart("no table name")
 	} else {
 		select_expr := strings.Join(select_data.GetColumnNames(), ", ")
 		if json_wrap {
 			select_expr = fmt.Sprintf("JSON_ARRAYAGG(JSON_ARRAY(%s))", select_expr)
 		}
-		query_part = fmt.Sprintf("SELECT %s FROM %s", select_expr, select_data.GetTableName())
+		query_part = "SELECT " + select_expr
+		if select_data.GetTableName() != "" {
+			query_part += " FROM " + select_data.GetTableName()
+		}
 		if select_data.GetWhereCondition() != "" {
 			query_part += " WHERE " + select_data.GetWhereCondition()
 		}
@@ -519,5 +455,110 @@ func viewWithCheckOptionTypeQueryPartBuilder(cot pb.ViewWithCheckOptionType) str
 		return "WITH LOCAL CHECK OPTION"
 	default:
 		return "WITH CASCADED CHECK OPTION"
+	}
+}
+func procedureParameterQueryPartBuilder(pp *pb.ProcedureParameter) (query_part string, err error) {
+	if pp.GetParamName() == "" {
+		return failBuildQueryPart("no procedure parameter name")
+	} else if pp.GetDataType() == nil {
+		return failBuildQueryPart("no procedure parameter type")
+	} else {
+		switch pp.GetType() {
+		case pb.ProcedureParameterType_IN:
+			query_part = "IN"
+		case pb.ProcedureParameterType_INOUT:
+			query_part = "INOUT"
+		case pb.ProcedureParameterType_OUT:
+			query_part = "OUT"
+		default:
+			return failBuildQuery("unknown procedure parameter type")
+		}
+		query_part += " " + pp.GetParamName()
+		data_type := ""
+		if data_type, err = dataTypeQueryPartBuilder(pp.GetDataType()); err != nil {
+			return "", err
+		} else {
+			query_part += " " + data_type
+		}
+		return
+	}
+}
+func dataTypeQueryPartBuilder(dt *pb.DataType) (query_part string, err error) {
+	if dt == nil {
+		return failBuildQueryPart("no data type data")
+	} else {
+		query_part = dt.GetType().String()
+		switch dt.GetType() {
+		case pb.DataTypeType_INT,
+			pb.DataTypeType_SMALLINT,
+			pb.DataTypeType_TINYINT,
+			pb.DataTypeType_MEDIUMINT,
+			pb.DataTypeType_BIGINT:
+			attrs := dt.GetIntAttrs()
+			if attrs.GetUnsigned() {
+				query_part += " UNSIGNED"
+			}
+			if attrs.GetAutoIncrement() {
+				query_part += " AUTO_INCREMENT"
+			}
+		case pb.DataTypeType_FLOAT:
+			if attrs := dt.GetFloatAttrs(); attrs != nil {
+				if attrs.GetP() != 0 {
+					query_part += fmt.Sprintf("(%d)", attrs.GetP())
+				}
+			} else if attrs := dt.GetDoubleAttrs(); attrs != nil {
+				if attrs.GetSize() != 0 && attrs.GetD() != 0 {
+					query_part += fmt.Sprintf("(%d, %d)", attrs.GetSize(), attrs.GetD())
+				} else if attrs.GetSize() != 0 {
+					query_part += fmt.Sprintf("(%d)", attrs.GetSize())
+				}
+			}
+		case pb.DataTypeType_DECIMAL,
+			pb.DataTypeType_NUMERIC,
+			pb.DataTypeType_DOUBLE:
+			attrs := dt.GetDoubleAttrs()
+			if attrs.GetSize() != 0 && attrs.GetD() != 0 {
+				query_part += fmt.Sprintf("(%d, %d)", attrs.GetSize(), attrs.GetD())
+			} else if attrs.GetSize() != 0 {
+				query_part += fmt.Sprintf("(%d)", attrs.GetSize())
+			}
+		case pb.DataTypeType_DATETIME,
+			pb.DataTypeType_TIMESTAMP,
+			pb.DataTypeType_TIME:
+			attrs := dt.GetTimeAttrs()
+			if attrs.GetFsp() != 0 {
+				query_part += fmt.Sprintf("(%d)", attrs.GetFsp())
+			}
+		case pb.DataTypeType_CHAR,
+			pb.DataTypeType_VARCHAR,
+			pb.DataTypeType_BINARY,
+			pb.DataTypeType_VARBINARY,
+			pb.DataTypeType_BLOB,
+			pb.DataTypeType_TEXT:
+			attrs := dt.GetStringAttrs()
+			if attrs.GetSize() != 0 {
+				query_part += fmt.Sprintf("(%d)", attrs.GetSize())
+			}
+		case pb.DataTypeType_ENUM:
+			attrs := dt.GetEnumAttrs()
+			if len(attrs.GetValues()) == 0 {
+				return failBuildQueryPart("no enum values")
+			} else {
+				query_part += fmt.Sprintf("(%s)", strings.Join(attrs.GetValues(), ", "))
+			}
+		case pb.DataTypeType_BIT,
+			pb.DataTypeType_DATE,
+			pb.DataTypeType_LONGBLOB,
+			pb.DataTypeType_LONGTEXT,
+			pb.DataTypeType_MEDIUMBLOB,
+			pb.DataTypeType_MEDIUMTEXT,
+			pb.DataTypeType_TINYBLOB,
+			pb.DataTypeType_TINYTEXT,
+			pb.DataTypeType_YEAR:
+			break // bypass
+		default:
+			return failBuildQueryPart("unknown data type type")
+		}
+		return
 	}
 }

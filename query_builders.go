@@ -368,7 +368,7 @@ func createTriggerQueryBuilder(request *pb.CreateTriggerRequest) (query string, 
 			}
 		}
 		return fmt.Sprintf(
-			"CREATE TRIGGER %s %s %s ON %s FOR EACH ROW %s %s",
+			"CREATE TRIGGER %s %s %s ON %s FOR EACH ROW %s BEGIN %s END",
 			request.GetTriggerName(),
 			strings.Split(request.GetTriggerTime().String(), "_")[0], // proto-кастыли
 			request.GetTriggerEvent().String(),
@@ -437,5 +437,51 @@ func dropViewQueryBuilder(request *pb.DropViewRequest) (query string, err error)
 		return failBuildQuery("no view name")
 	} else {
 		return fmt.Sprintf("DROP VIEW %s", request.GetViewName()), nil
+	}
+}
+func createProcedureQueryBuilder(request *pb.CreateProcedureRequest) (query string, err error) {
+	if request.GetProcedureName() == "" {
+		return failBuildQuery("no procedure name")
+	} else if request.GetRoutineBody() == "" {
+		return failBuildQuery("no procedure routine body")
+	} else {
+		query = "CREATE PROCEDURE " + request.GetProcedureName()
+		if len(request.GetProcedureParameters()) > 0 {
+			pps := []string{}
+			for _, procedure_parameter := range request.GetProcedureParameters() {
+				var pp string
+				if pp, err = procedureParameterQueryPartBuilder(procedure_parameter); err != nil {
+					return "", err
+				} else {
+					pps = append(pps, pp)
+				}
+			}
+			query += fmt.Sprintf(" (%s)", strings.Join(pps, ", "))
+		}
+		query += fmt.Sprintf(" BEGIN %s END", request.GetRoutineBody())
+		return
+	}
+}
+func dropProcedureQueryBuilder(request *pb.DropProcedureRequest) (query string, err error) {
+	if request.GetProcedureName() == "" {
+		return failBuildQuery("no view name")
+	} else {
+		return fmt.Sprintf("DROP PROCEDURE %s", request.GetProcedureName()), nil
+	}
+}
+func setQueryBuilder(request *pb.SetRequest) (query string, err error) {
+	if request.GetVarName() == "" {
+		return failBuildQuery("no set var name")
+	} else if request.GetExpr() == "" {
+		return failBuildQuery("no set expr")
+	} else {
+		return fmt.Sprintf("SET %s = %s", request.GetVarName(), request.GetExpr()), nil
+	}
+}
+func callProcedureQueryBuilder(request *pb.CallProcedureRequest) (query string, err error) {
+	if request.GetExpr() == "" {
+		return failBuildQuery("no expr")
+	} else {
+		return fmt.Sprintf("CALL %s", request.GetExpr()), nil
 	}
 }
